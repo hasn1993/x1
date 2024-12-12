@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نسخ النص وتحديد الموقع</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            direction: rtl;
+        }
+        input {
+            width: 80%;
+            padding: 10px;
+            margin-right: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #message {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: none; /* مخفي بشكل افتراضي */
+        }
+        #map {
+            height: 400px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>نسخ النص إلى الحافظة</h2>
+    
+    <!-- حقل إدخال النص -->
+    <input type="text" id="myInput" value="أدخل النص هنا">
+    
+    <!-- زر النسخ -->
+    <button onclick="copyText()">نسخ النص</button>
+
+    <!-- مكان لعرض الرسالة -->
+    <div id="message">تم نسخ النص بنجاح!</div>
+
+    <!-- خريطة OpenStreetMap -->
+    <div id="map"></div>
+
+    <!-- زر تحديد الموقع -->
+    <button onclick="getLocation()">تحديد موقعي على الخريطة</button>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        // إعداد الخريطة
+        var map = L.map('map').setView([51.505, -0.09], 13);  // الإحداثيات الأولية لموقع الخريطة (لندن كمثال)
+
+        // إضافة طبقة OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // إضافة Marker فارغ لموقع المستخدم
+        var marker = L.marker([51.505, -0.09]).addTo(map);
+
+        // وظيفة نسخ النص إلى الحافظة
+        function copyText() {
+            var copyText = document.getElementById("myInput");
+            copyText.select();
+            copyText.setSelectionRange(0, 99999); // لدعم الأجهزة المحمولة
+            document.execCommand("copy");
+
+            var message = document.getElementById("message");
+            message.style.display = "block";  // عرض الرسالة
+            setTimeout(function() {
+                message.style.display = "none";
+            }, 3000);
+        }
+
+        // وظيفة لتحديد الموقع الجغرافي للمستخدم
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    var lat = position.coords.latitude;
+                    var lon = position.coords.longitude;
+
+                    // تحريك الخريطة إلى موقع المستخدم
+                    map.setView(new L.LatLng(lat, lon), 13);
+                    marker.setLatLng([lat, lon]);  // تحديث مكان الـ Marker
+
+                    // عرض رسالة للمستخدم
+                    alert("تم تحديد موقعك: " + lat + ", " + lon);
+                });
+            } else {
+                alert("التحديد الجغرافي غير مدعوم في متصفحك.");
+            }
+        }
+    </script>
+
+</body>
+</html>
