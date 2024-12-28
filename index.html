@@ -495,7 +495,46 @@ async function saveRouteToFirebase() {
         destinationPointSelected = false;
 
         showAlert('تم مسح المسار. يمكنك الآن تحديد نقطة البداية والوجهة من جديد.');
-    });
+    });// دالة لتحديث الخريطة وعلامة الموقع الحالي
+// تعريف متغير لتخزين الموقع السابق
+let previousLocation = null;
+let currentLocationMarker = null; // لتخزين علامة الموقع الحالي
+
+// دالة لتحديث الموقع الحالي كل 5 ثواني
+function updateCurrentLocation() {
+    // هنا نفترض أن قيمة حقل الموقع الحالي يتم جلبها من مكان آخر (مثال: من قاعدة بيانات أو API)
+    const currentLocationValue = document.getElementById('currentLocation').value;
+
+    // إذا كانت القيمة السابقة لا تساوي القيمة الحالية
+    if (currentLocationValue !== previousLocation) {
+        // تحديث الموقع السابق بالقيمة الجديدة
+        previousLocation = currentLocationValue;
+
+        // تحويل القيمة إلى إحداثيات (هنا نستخدم التنسيق "Lat, Lng")
+        const [lat, lng] = currentLocationValue.split(',').map(Number);
+
+        // إذا كانت الإحداثيات صحيحة
+        if (!isNaN(lat) && !isNaN(lng)) {
+            // تحديث الخريطة إلى الموقع الجديد
+            map.setView([lat, lng], 13);
+
+            // إذا كانت هناك علامة للموقع الحالي، نقوم بإزالتها
+            if (currentLocationMarker) {
+                map.removeLayer(currentLocationMarker);
+            }
+
+            // إضافة علامة جديدة للموقع الحالي
+            currentLocationMarker = L.marker([lat, lng], { 
+                draggable: true, 
+                icon: L.divIcon({ className: 'leaflet-div-icon', html: '🔵', iconSize: [20, 20] })
+            }).addTo(map).bindPopup('الموقع الحالي').openPopup();
+        }
+    }
+}
+
+// تحديث الموقع كل 5 ثواني
+setInterval(updateCurrentLocation, 5000);
+
 
 </script>
 
