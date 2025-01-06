@@ -191,14 +191,22 @@
  <label for="routeId">انسخ المفتاح :</label>
     <input type="text" id="routeId" placeholder="المفتاح السري للطلب سيظهر هنا بعد حفظ الطلب" readonly>
     <br> <button class="btn" id="copyRouteId">نسخ مفتاح الطلب</button>
-    <label for="currentLocation">موقعك الحالي:</label>
-    <input type="text" id="currentLocation" placeholder="يتم تحديد الموقع تلقائيًا" readonly>
-    <br>
-    <label for="startPoint">نقطة البداية:</label>
-    <input type="text" id="startPoint" placeholder="انقر لتحديد نقطة البداية" readonly>
-    <br>
-    <label for="destinationPoint">نقطة الوجهة:</label>
-    <input type="text" id="destinationPoint" placeholder="انقر على الخريطة لتحديد الوجهة" readonly>
+   <label for="currentLocation">الموقع الحالي (عرض، طول):</label>
+<input type="text" id="currentLatitude" placeholder="عرض الموقع" readonly>
+<input type="text" id="currentLongitude" placeholder="طول الموقع" readonly>
+
+<br>
+
+<label for="startPoint">نقطة البداية (عرض، طول):</label>
+<input type="text" id="startLatitude" placeholder="عرض نقطة البداية" readonly>
+<input type="text" id="startLongitude" placeholder="طول نقطة البداية" readonly>
+
+<br>
+
+<label for="destinationPoint">نقطة الوجهة (عرض، طول):</label>
+<input type="text" id="destinationLatitude" placeholder="عرض نقطة الوجهة" readonly>
+<input type="text" id="destinationLongitude" placeholder="طول نقطة الوجهة" readonly>
+
     <br><button class="btn" id="clearRoute">مسح المسار</button> 
    
 </div>
@@ -383,100 +391,105 @@ async function saveRouteToFirebase() {
     }
 
     // الحصول على الموقع الحالي باستخدام GPS
-    function setCurrentLocation() {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(function(position) {
-                const lat = position.coords.latitude;
-                const lng = position.coords.longitude;
+ function setCurrentLocation() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
 
-                // عرض الموقع الحالي في الحقل
-                document.getElementById('currentLocation').value = `Lat: ${lat}, Lng: ${lng}`;
+            // تحديث الحقول الجديدة
+            document.getElementById('currentLatitude').value = lat;
+            document.getElementById('currentLongitude').value = lng;
 
-                // تعيين الموقع الحالي على الخريطة
-                map.setView([lat, lng], 13);
+            // تعيين الموقع الحالي على الخريطة
+            map.setView([lat, lng], 13);
 
-                // تعيين الموقع الحالي كنقطة بداية
-                startCoordinates = [lat, lng];
-                if (startMarker) map.removeLayer(startMarker);
-                startMarker = L.marker([lat, lng], { 
-                    draggable: true, 
-                    icon: L.divIcon({ className: 'leaflet-div-icon', html: '🔴', iconSize: [20, 20] }) 
-                }).addTo(map).bindPopup('نقطة البداية').openPopup();
-                document.getElementById('startPoint').value = `${lat}, ${lng}`;
-
-                // إظهار تنبيه بنجاح تحديد الموقع التلقائي
-                showAlert('تم تحديد الموقع التلقائي بنجاح كموقع نقطة البداية.');
-                startPointSelected = true;
-
-                // تحديث المسار تلقائيًا بعد تحديد نقطة البداية
-                updateRoute();
-
-                // عند تحريك نقطة البداية
-                startMarker.on('dragend', () => {
-                    const position = startMarker.getLatLng();
-                    startCoordinates = [position.lat, position.lng];
-                    document.getElementById('startPoint').value = `${position.lat}, ${position.lng}`;
-                    updateRoute();
-                });
-
-            }, function(error) {
-                console.log(error);
-                showAlert('فشل في تحديد الموقع الحالي');
-            });
-        } else {
-            showAlert('متصفحك لا يدعم خدمة GPS');
-        }
-    }
-
-    // استدعاء دالة تحديد الموقع عند تحميل الصفحة
-    window.onload = setCurrentLocation;
-
-    // عند النقر على الخريطة لتحديد نقطة البداية
-    map.on('click', (e) => {
-        if (!startPointSelected) {
-            const { lat, lng } = e.latlng;
+            // تحديث الموقع الحالي كنقطة بداية
+            startCoordinates = [lat, lng];
             if (startMarker) map.removeLayer(startMarker);
             startMarker = L.marker([lat, lng], { 
                 draggable: true, 
                 icon: L.divIcon({ className: 'leaflet-div-icon', html: '🔴', iconSize: [20, 20] }) 
             }).addTo(map).bindPopup('نقطة البداية').openPopup();
-            startCoordinates = [lat, lng];
-            document.getElementById('startPoint').value = `${lat}, ${lng}`;
+            document.getElementById('startLatitude').value = lat;
+            document.getElementById('startLongitude').value = lng;
 
+            // إظهار تنبيه
+            showAlert('تم تحديد الموقع التلقائي بنجاح كموقع نقطة البداية.');
+
+            startPointSelected = true;
+
+            // تحديث المسار تلقائيًا بعد تحديد نقطة البداية
+            updateRoute();
+
+            // عند تحريك نقطة البداية
             startMarker.on('dragend', () => {
                 const position = startMarker.getLatLng();
                 startCoordinates = [position.lat, position.lng];
-                document.getElementById('startPoint').value = `${position.lat}, ${position.lng}`;
+                document.getElementById('startLatitude').value = position.lat;
+                document.getElementById('startLongitude').value = position.lng;
                 updateRoute();
             });
 
-            // تم تحديد نقطة البداية
-            startPointSelected = true;
+        }, function(error) {
+            console.log(error);
+            showAlert('فشل في تحديد الموقع الحالي');
+        });
+    } else {
+        showAlert('متصفحك لا يدعم خدمة GPS');
+    }
+}
 
-            // إظهار التنبيه بعد تحديد نقطة البداية
-            showAlert('تم تحديد نقطة البداية بنجاح. الآن، حدد نقطة الوجهة.');
-        } else if (startPointSelected && !destinationPointSelected) {
-            const { lat, lng } = e.latlng;
-            if (destinationMarker) map.removeLayer(destinationMarker);
-            destinationMarker = L.marker([lat, lng], { 
-                draggable: true, 
-                icon: L.divIcon({ className: 'leaflet-div-icon', html: '❌', iconSize: [20, 20] }) 
-            }).addTo(map).bindPopup('نقطة الوجهة').openPopup();
-            destinationCoordinates = [lat, lng];
-            document.getElementById('destinationPoint').value = `${lat}, ${lng}`;
 
-            destinationMarker.on('dragend', () => {
-                const position = destinationMarker.getLatLng();
-                destinationCoordinates = [position.lat, position.lng];
-                document.getElementById('destinationPoint').value = `${position.lat}, ${position.lng}`;
-                updateRoute();
-            });
+    // استدعاء دالة تحديد الموقع عند تحميل الصفحة
+    window.onload = setCurrentLocation;
 
-            destinationPointSelected = true;
+ map.on('click', (e) => {
+    if (!startPointSelected) {
+        const { lat, lng } = e.latlng;
+        if (startMarker) map.removeLayer(startMarker);
+        startMarker = L.marker([lat, lng], { 
+            draggable: true, 
+            icon: L.divIcon({ className: 'leaflet-div-icon', html: '🔴', iconSize: [20, 20] }) 
+        }).addTo(map).bindPopup('نقطة البداية').openPopup();
+        startCoordinates = [lat, lng];
+        document.getElementById('startLatitude').value = lat;
+        document.getElementById('startLongitude').value = lng;
 
+        startMarker.on('dragend', () => {
+            const position = startMarker.getLatLng();
+            startCoordinates = [position.lat, position.lng];
+            document.getElementById('startLatitude').value = position.lat;
+            document.getElementById('startLongitude').value = position.lng;
             updateRoute();
-        }
-    });
+        });
+
+        startPointSelected = true;
+        showAlert('تم تحديد نقطة البداية بنجاح. الآن، حدد نقطة الوجهة.');
+    } else if (startPointSelected && !destinationPointSelected) {
+        const { lat, lng } = e.latlng;
+        if (destinationMarker) map.removeLayer(destinationMarker);
+        destinationMarker = L.marker([lat, lng], { 
+            draggable: true, 
+            icon: L.divIcon({ className: 'leaflet-div-icon', html: '❌', iconSize: [20, 20] }) 
+        }).addTo(map).bindPopup('نقطة الوجهة').openPopup();
+        destinationCoordinates = [lat, lng];
+        document.getElementById('destinationLatitude').value = lat;
+        document.getElementById('destinationLongitude').value = lng;
+
+        destinationMarker.on('dragend', () => {
+            const position = destinationMarker.getLatLng();
+            destinationCoordinates = [position.lat, position.lng];
+            document.getElementById('destinationLatitude').value = position.lat;
+            document.getElementById('destinationLongitude').value = position.lng;
+            updateRoute();
+        });
+
+        destinationPointSelected = true;
+        updateRoute();
+    }
+});
+
 
     // عند الضغط على مسح المسار
     document.getElementById('clearRoute').addEventListener('click', () => {
