@@ -510,24 +510,24 @@ async function saveRouteToFirebase() {
         showAlert('تم مسح المسار. يمكنك الآن تحديد نقطة البداية والوجهة من جديد.');
     });// دالة لتحديث الخريطة وعلامة الموقع الحالي
 // تعريف متغير لتخزين الموقع السابق
+// تعريف متغير لتخزين الموقع السابق
 let previousLocation = null;
 let currentLocationMarker = null; // لتخزين علامة الموقع الحالي
 
 // دالة لتحديث الموقع الحالي كل 5 ثواني
 function updateCurrentLocation() {
-    // هنا نفترض أن قيمة حقل الموقع الحالي يتم جلبها من مكان آخر (مثال: من قاعدة بيانات أو API)
-    const currentLocationValue = document.getElementById('currentLocation').value;
+    // الحصول على القيم من حقول الموقع الحالي (عرض وطول)
+    const lat = parseFloat(document.getElementById('currentLatitude').value);
+    const lng = parseFloat(document.getElementById('currentLongitude').value);
 
-    // إذا كانت القيمة السابقة لا تساوي القيمة الحالية
-    if (currentLocationValue !== previousLocation) {
-        // تحديث الموقع السابق بالقيمة الجديدة
-        previousLocation = currentLocationValue;
+    // إذا كانت الإحداثيات صحيحة
+    if (!isNaN(lat) && !isNaN(lng)) {
+        // إذا كانت القيم الجديدة تختلف عن القيم السابقة
+        const currentLocationValue = `${lat},${lng}`;
+        if (currentLocationValue !== previousLocation) {
+            // تحديث الموقع السابق بالقيمة الجديدة
+            previousLocation = currentLocationValue;
 
-        // تحويل القيمة إلى إحداثيات (هنا نستخدم التنسيق "Lat, Lng")
-        const [lat, lng] = currentLocationValue.split(',').map(Number);
-
-        // إذا كانت الإحداثيات صحيحة
-        if (!isNaN(lat) && !isNaN(lng)) {
             // تحديث الخريطة إلى الموقع الجديد
             map.setView([lat, lng], 13);
 
@@ -547,6 +547,8 @@ function updateCurrentLocation() {
 
 // تحديث الموقع كل 5 ثواني
 setInterval(updateCurrentLocation, 5000);
+
+
 
 
 </script>
