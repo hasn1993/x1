@@ -1,0 +1,170 @@
+﻿<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>عرض المسارات على الخريطة</title>
+    <!-- تحميل مكتبة Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+    <!-- تحميل مكتبة Firebase -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";  
+
+        // تهيئة Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyAYP_0YecYNCgoTKyvuSme9u3pmg-CH1iU",
+            authDomain: "korsa-01.firebaseapp.com",
+            projectId: "korsa-01",
+            storageBucket: "korsa-01.firebasestorage.app",
+            messagingSenderId: "240468092018",
+            appId: "1:240468092018:web:641db8b472b2c7da0aceeb"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app); 
+
+        let userLat = 32.8872;  // الافتراضي - طرابلس
+        let userLng = 13.1910;
+
+        // دالة لعرض المسارات من Firebase
+        async function retrieveRoutes() {
+            try {
+                const routesRef = collection(db, "الطلابات");  
+                const querySnapshot = await getDocs(routesRef);  
+
+                if (querySnapshot.empty) {
+                    console.log("لم يتم العثور على أي مسارات.");
+                    alert("لم يتم العثور على أي مسارات.");
+                    return;
+                }
+
+                querySnapshot.forEach((doc) => {
+                    const routeData = doc.data();
+                    const startLat = routeData.startPoint.lat;
+                    const startLng = routeData.startPoint.lng;
+                    const destinationLat = routeData.destinationPoint.lat;
+                    const destinationLng = routeData.destinationPoint.lng;
+
+                    // حساب المسافة بين الموقع الحالي والنقاط
+                    const distanceToStart = getDistance(userLat, userLng, startLat, startLng);
+                    const distanceToDestination = getDistance(userLat, userLng, destinationLat, destinationLng);
+
+                    // إذا كانت المسافة أقل من 10 كم، نعرض المسار
+                    if (distanceToStart < 10000 || distanceToDestination < 10000) {
+                        L.marker([startLat, startLng]).addTo(map)
+                            .bindPopup(`نقطة البداية: ${startLat}, ${startLng}`);
+
+                        L.marker([destinationLat, destinationLng]).addTo(map)
+                            .bindPopup(`نقطة الوجهة: ${destinationLat}, ${destinationLng}`);
+
+                        const latlngs = [
+                            [startLat, startLng],
+                            [destinationLat, destinationLng]
+                        ];
+                        L.polyline(latlngs, { color: 'blue', weight: 4 }).addTo(map);
+                    }
+                });
+            } catch (error) {
+                console.error("Error retrieving routes: ", error);
+                alert("حدث خطأ أثناء استرجاع البيانات.");
+            }
+        }
+
+        // حساب المسافة بين نقطتين باستخدام Haversine formula
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // radius of Earth in km
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            const d = R * c; // in km
+            return d;
+        }
+
+        // تحويل الدرجات إلى راديان
+        function toRad(deg) {
+            return deg * (Math.PI / 180);
+        }
+
+        // التفاعل مع الخريطة عند تغيير الموقع أو التكبير
+        map.on('moveend', updateMapData);
+        map.on('zoomend', updateMapData);
+
+        // تحديث البيانات بناءً على الموقع الجديد
+        function updateMapData() {
+            const bounds = map.getBounds();  // الحصول على حدود الخريطة
+            userLat = map.getCenter().lat;  // تحديث الموقع الحالي للمستخدم
+            userLng = map.getCenter().lng;
+
+            // إزالة العلامات السابقة (لتجنب التكرار)
+            map.eachLayer(function(layer) {
+                if (layer instanceof L.Marker || layer instanceof L.Polyline) {
+                    map.removeLayer(layer);
+                }
+            });
+
+            // استرجاع المسارات القريبة بعد تحديث الخريطة
+            retrieveRoutes();
+        }
+
+        // جلب الموقع الحالي للمستخدم
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    userLat = position.coords.latitude;
+                    userLng = position.coords.longitude;
+                    map.setView([userLat, userLng], 12);  // تغيير الموقع على الخريطة
+                    retrieveRoutes();  // استرجاع المسارات بناءً على الموقع الجديد
+                });
+            } else {
+                alert("الجهاز لا يدعم تحديد الموقع.");
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", function() {
+            getCurrentLocation();  // الحصول على الموقع عند تحميل الصفحة
+        });
+
+    </script>
+
+</head>
+<body>
+
+    <!-- خريطة Leaflet -->
+    <div id="map"></div>
+
+    <style>
+        #map {
+            height: 500px;
+            width: 100%;
+        }
+        .btn {
+            background-color: #4a90e2;
+            color: white;
+            padding: 10px;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .btn:hover {
+            background-color: #357ab7;
+        }
+    </style>
+
+    <!-- تهيئة الخريطة -->
+    <script>
+        const map = L.map('map').setView([32.8872, 13.1910], 6);  // موقع افتراضي في طرابلس
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+    </script>
+</body>
+</html>
