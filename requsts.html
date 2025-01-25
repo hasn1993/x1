@@ -40,7 +40,7 @@
         let markers = []; // لتخزين علامات نقاط البداية والوجهة
         let currentLocationMarker; // متغير لحفظ المؤشر الحالي
 
-        const MAX_DISTANCE_TO_CLICK = 40; // أقصى مسافة بالكيلومترات للسماح بالنقر على الطلبات
+        const MAX_DISTANCE_TO_CLICK = 10; // أقصى مسافة بالكيلومترات للسماح بالنقر على الطلبات
 
         // دالة لعرض المسارات من Firebase
         async function retrieveRoutes() {
@@ -218,23 +218,84 @@
         document.getElementById("input-lng").addEventListener("input", updateMapLocation);
 
     </script>
+    <style>
+        body {
+            display: flex;
+            flex-direction: row;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        #map-container {
+            flex: 1;
+            height: 100vh;
+        }
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+        #info-container {
+            flex: 1;
+            padding: 20px;
+            background: #f4f4f4;
+            overflow-y: auto;
+        }
+        .info-input {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 10px;
+        }
+        .info-input input {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+    </style>
 </head>
 <body>
-    <div id="map"></div>
-    <style>
-        #map { height: 500px; width: 100%; }
-    </style>
-    <div>
-        <input type="text" id="input-lat" placeholder="Latitude">
-        <input type="text" id="input-lng" placeholder="Longitude">
-        <input type="text" id="start-lat" disabled>
-        <input type="text" id="start-lng" disabled>
-        <input type="text" id="destination-lat" disabled>
-        <input type="text" id="destination-lng" disabled>
-        <input type="text" id="route-id" disabled placeholder="Route ID">
-        <input type="text" id="user-id" disabled placeholder="User ID">
-        <input type="text" id="distance" disabled>
-        <input type="text" id="duration" disabled>
+    <div id="map-container">
+        <div id="map"></div>
+    </div>
+    <div id="info-container">
+        <div class="info-input">
+            <label for="input-lat">Latitude:</label>
+            <input type="text" id="input-lat" placeholder="Latitude">
+        </div>
+        <div class="info-input">
+            <label for="input-lng">Longitude:</label>
+            <input type="text" id="input-lng" placeholder="Longitude">
+        </div>
+        <div class="info-input">
+            <label for="start-lat">Start Latitude:</label>
+            <input type="text" id="start-lat" disabled>
+        </div>
+        <div class="info-input">
+            <label for="start-lng">Start Longitude:</label>
+            <input type="text" id="start-lng" disabled>
+        </div>
+        <div class="info-input">
+            <label for="destination-lat">Destination Latitude:</label>
+            <input type="text" id="destination-lat" disabled>
+        </div>
+        <div class="info-input">
+            <label for="destination-lng">Destination Longitude:</label>
+            <input type="text" id="destination-lng" disabled>
+        </div>
+        <div class="info-input">
+            <label for="route-id">Route ID:</label>
+            <input type="text" id="route-id" disabled>
+        </div>
+        <div class="info-input">
+            <label for="user-id">User ID:</label>
+            <input type="text" id="user-id" disabled>
+        </div>
+        <div class="info-input">
+            <label for="distance">Distance (km):</label>
+            <input type="text" id="distance" disabled>
+        </div>
+        <div class="info-input">
+            <label for="duration">Duration (mins):</label>
+            <input type="text" id="duration" disabled>
+        </div>
     </div>
     <script>
         const map = L.map('map').setView([32.8872, 13.1910], 6);
