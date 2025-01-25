@@ -15,7 +15,7 @@
     <!-- تحميل مكتبة Firebase -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
-        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";  
+        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 
         // تهيئة Firebase
         const firebaseConfig = {
@@ -28,23 +28,25 @@
         };
 
         const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app); 
+        const db = getFirestore(app);
 
-        let userLat = 32.8872;  // الافتراضي - طرابلس
+        let userLat = 32.8872; // الافتراضي - طرابلس
         let userLng = 13.1910;
-        let routeControl1;  // مسار بين البداية والوجهة
-        let routeControl2;  // مسار بين الموقع الحالي والبداية
+        let routeControl1; // مسار بين البداية والوجهة
+        let routeControl2; // مسار بين الموقع الحالي والبداية
         let activeRoute = null; // المسار الذي تم تحديده
         let activeRouteMarkers = []; // لتخزين علامات المسار المحدد
         let routesData = []; // مصفوفة لتخزين البيانات الخاصة بالمسارات
-        let markers = []; // لتخزين علامات نقاط البداية
+        let markers = []; // لتخزين علامات نقاط البداية والوجهة
         let currentLocationMarker; // متغير لحفظ المؤشر الحالي
+
+        const MAX_DISTANCE_TO_CLICK = 40; // أقصى مسافة بالكيلومترات للسماح بالنقر على الطلبات
 
         // دالة لعرض المسارات من Firebase
         async function retrieveRoutes() {
             try {
-                const routesRef = collection(db, "الطلابات");  
-                const querySnapshot = await getDocs(routesRef);  
+                const routesRef = collection(db, "الطلابات");
+                const querySnapshot = await getDocs(routesRef);
 
                 if (querySnapshot.empty) {
                     console.log("لم يتم العثور على أي مسارات.");
@@ -52,7 +54,15 @@
                     return;
                 }
 
-                routesData = []; 
+                // مسح المسارات القديمة ولكن الحفاظ على المسار المحدد
+                markers.forEach(marker => {
+                    if (!activeRouteMarkers.includes(marker)) {
+                        map.removeLayer(marker);
+                    }
+                });
+
+                markers = activeRouteMarkers.slice();
+                routesData = [];
 
                 querySnapshot.forEach((doc) => {
                     const routeData = doc.data();
@@ -76,13 +86,13 @@
 
                     const distanceToStart = getDistance(userLat, userLng, startLat, startLng);
 
-                    if (distanceToStart < 10000) {
-                        const startMarker = L.marker([startLat, startLng]).addTo(map)
-                            .bindPopup(`نقطة البداية: ${startLat}, ${startLng}`);
-                        markers.push(startMarker);
+                    const startMarker = L.marker([startLat, startLng]).addTo(map)
+                        .bindPopup(`نقطة البداية: ${startLat}, ${startLng} (المسافة: ${distanceToStart.toFixed(2)} كم)`);
 
+                    if (distanceToStart <= MAX_DISTANCE_TO_CLICK) {
+                        // إذا كانت المسافة ضمن الحد المسموح به، السماح بالنقر على العلامة
                         startMarker.on('click', () => {
-                            // حذف المسار والعلامات القديمة فقط، مع الحفاظ على جميع علامات نقاط البداية
+                            // حذف المسار والعلامات القديمة
                             if (routeControl1) {
                                 map.removeControl(routeControl1);
                             }
@@ -95,14 +105,10 @@
                             activeRouteMarkers = [startMarker];
                             routeControl1 = displayRoute(startLat, startLng, destinationLat, destinationLng, routeControl1, 'green'); // مسار أخضر
 
-                            // مسح علامة الوجهة القديمة (التأكد من عدم تكرارها)
-                            if (activeRouteMarkers.length > 1) {
-                                map.removeLayer(activeRouteMarkers[1]);
-                            }
-
                             // إنشاء علامة الوجهة
-                            const destinationMarker = createDestinationMarker(destinationLat, destinationLng); 
+                            const destinationMarker = createDestinationMarker(destinationLat, destinationLng);
                             destinationMarker.addTo(map);
+                            markers.push(destinationMarker);
                             activeRouteMarkers.push(destinationMarker);
 
                             // رسم المسار الأزرق بين الموقع الحالي ونقطة البداية
@@ -118,7 +124,12 @@
                             document.getElementById('duration').value = routeData.duration;
                             document.getElementById('user-id').value = routeData.userId; // إضافة ID المستخدم
                         });
+                    } else {
+                        // إذا كانت المسافة أكبر من الحد المسموح به، إظهار رسالة توضيحية
+                        startMarker.bindPopup("هذه العلامة بعيدة جدًا عن موقعك الحالي ولا يمكنك التفاعل معها.");
                     }
+
+                    markers.push(startMarker);
                 });
             } catch (error) {
                 console.error("Error retrieving routes: ", error);
@@ -164,23 +175,7 @@
             return controlVariable;
         }
 
-        // حساب المسافة بين نقطتين
-        function getDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371;
-            const dLat = toRad(lat2 - lat1);
-            const dLon = toRad(lon2 - lon1);
-            const a = Math.sin(dLat / 2) ** 2 +
-                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-                Math.sin(dLon / 2) ** 2;
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c;
-        }
-
-        function toRad(deg) {
-            return deg * (Math.PI / 180);
-        }
-
-        // تحديث الموقع الحالي بناءً على الحقول
+        // تحديث الموقع الحالي يدويًا
         function updateMapLocation() {
             const lat = parseFloat(document.getElementById("input-lat").value);
             const lng = parseFloat(document.getElementById("input-lng").value);
@@ -199,29 +194,29 @@
                     .bindPopup("الموقع الحالي")
                     .openPopup();
 
-                retrieveRoutes(); // إعادة تحميل المسارات بناءً على الموقع الجديد
+                retrieveRoutes();
             }
         }
 
-        document.addEventListener("DOMContentLoaded", () => {
-            getCurrentLocation();
-        });
+        // حساب المسافة بين نقطتين
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // نصف قطر الأرض بالكيلومترات
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            const a = Math.sin(dLat / 2) ** 2 +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                Math.sin(dLon / 2) ** 2;
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
 
-        function getCurrentLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(position => {
-                    userLat = position.coords.latitude;
-                    userLng = position.coords.longitude;
-                    map.setView([userLat, userLng], 12);
-                    retrieveRoutes();
-                });
-            } else {
-                alert("الجهاز لا يدعم تحديد الموقع.");
-            }
+        function toRad(deg) {
+            return deg * (Math.PI / 180);
         }
 
         document.getElementById("input-lat").addEventListener("input", updateMapLocation);
         document.getElementById("input-lng").addEventListener("input", updateMapLocation);
+
     </script>
 </head>
 <body>
@@ -247,6 +242,9 @@
             maxZoom: 19,
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
+
+        // استرجاع المسارات عند تحميل الصفحة
+        retrieveRoutes();
     </script>
 </body>
 </html>
