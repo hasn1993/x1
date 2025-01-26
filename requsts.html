@@ -32,14 +32,31 @@
 
         let userLat = 32.8872; // الافتراضي - طرابلس
         let userLng = 13.1910;
-        let routeControl1; // مسار بين البداية والوجهة
-        let routeControl2; // مسار بين الموقع الحالي والبداية
-        let activeRoute = null; // المسار الذي تم تحديده
-        let activeRouteMarkers = []; // لتخزين علامات المسار المحدد
-        let routesData = []; // مصفوفة لتخزين البيانات الخاصة بالمسارات
-        let markers = {}; // لتخزين علامات نقاط البداية والوجهة حسب ID
-        let currentLocationMarker; // متغير لحفظ المؤشر الحالي
-        const MAX_DISTANCE_TO_CLICK = 10; // أقصى مسافة بالكيلومترات للسماح بالنقر على الطلبات
+        let routeControl1;
+        let routeControl2;
+        let activeRoute = null;
+        let activeRouteMarkers = [];
+        let markers = {};
+        let currentLocationMarker;
+
+        const MAX_DISTANCE_TO_CLICK = 10;
+
+        // تحديث الموقع الحالي
+        function updateMapLocation(lat, lng) {
+            userLat = lat;
+            userLng = lng;
+
+            // تحديث الخريطة إلى الموقع الجديد
+            map.setView([lat, lng]);
+
+            if (currentLocationMarker) {
+                map.removeLayer(currentLocationMarker);
+            }
+
+            currentLocationMarker = L.marker([lat, lng]).addTo(map)
+                .bindPopup("الموقع الحالي")
+                .openPopup();
+        }
 
         // مراقبة التغيرات في مجموعة "الطلابات"
         function monitorRoutes() {
@@ -65,8 +82,6 @@
         function addRouteMarker(routeId, routeData) {
             const startLat = routeData.startPoint.lat;
             const startLng = routeData.startPoint.lng;
-            const destinationLat = routeData.destinationPoint.lat;
-            const destinationLng = routeData.destinationPoint.lng;
 
             const distanceToStart = getDistance(userLat, userLng, startLat, startLng);
 
@@ -79,13 +94,13 @@
                 startMarker.bindPopup("هذه العلامة بعيدة جدًا عن موقعك الحالي ولا يمكنك التفاعل معها.");
             }
 
-            markers[routeId] = { startMarker, destinationLat, destinationLng };
+            markers[routeId] = { startMarker };
         }
 
         // تحديث علامة موجودة
         function updateRouteMarker(routeId, routeData) {
-            removeRouteMarker(routeId); // إزالة العلامة القديمة
-            addRouteMarker(routeId, routeData); // إضافة العلامة الجديدة
+            removeRouteMarker(routeId); 
+            addRouteMarker(routeId, routeData); 
         }
 
         // إزالة علامة
@@ -103,7 +118,6 @@
             const destinationLat = routeData.destinationPoint.lat;
             const destinationLng = routeData.destinationPoint.lng;
 
-            // حذف المسار والعلامات القديمة
             if (routeControl1) {
                 map.removeControl(routeControl1);
             }
@@ -111,20 +125,16 @@
                 map.removeControl(routeControl2);
             }
 
-            // تحديث المسار الحالي
             activeRoute = routeId;
             activeRouteMarkers = [startMarker];
-            routeControl1 = displayRoute(startLat, startLng, destinationLat, destinationLng, routeControl1, 'green'); // مسار أخضر
+            routeControl1 = displayRoute(startLat, startLng, destinationLat, destinationLng, 'green'); 
 
-            // إنشاء علامة الوجهة
             const destinationMarker = createDestinationMarker(destinationLat, destinationLng);
             destinationMarker.addTo(map);
             activeRouteMarkers.push(destinationMarker);
 
-            // رسم المسار الأزرق بين الموقع الحالي ونقطة البداية
-            routeControl2 = displayRoute(userLat, userLng, startLat, startLng, routeControl2, 'blue'); // مسار أزرق
+            routeControl2 = displayRoute(userLat, userLng, startLat, startLng, 'blue'); 
 
-            // تحديث الحقول بالقيم الجديدة
             document.getElementById('start-lat').value = startLat;
             document.getElementById('start-lng').value = startLng;
             document.getElementById('destination-lat').value = destinationLat;
@@ -135,68 +145,31 @@
             document.getElementById('user-id').value = routeData.userId;
         }
 
-        // دالة لإنشاء علامة الوجهة
-        function createDestinationMarker(destinationLat, destinationLng) {
+        function createDestinationMarker(lat, lng) {
             const greenIcon = L.divIcon({
                 className: 'leaflet-div-icon',
                 html: '<div style="background-color: green; width: 20px; height: 20px; border-radius: 50%;"></div>',
                 iconSize: [20, 20],
-                iconAnchor: [10, 10],
-                popupAnchor: [0, -10]
+                iconAnchor: [10, 10]
             });
 
-            return L.marker([destinationLat, destinationLng], { icon: greenIcon });
+            return L.marker([lat, lng], { icon: greenIcon });
         }
 
-        // دالة لرسم مسار
-        function displayRoute(startLat, startLng, destinationLat, destinationLng, controlVariable, color) {
-            if (controlVariable) {
-                map.removeControl(controlVariable);
-            }
-
-            controlVariable = L.Routing.control({
-                waypoints: [
-                    L.latLng(startLat, startLng),
-                    L.latLng(destinationLat, destinationLng)
-                ],
+        function displayRoute(startLat, startLng, destLat, destLng, color) {
+            const control = L.Routing.control({
+                waypoints: [L.latLng(startLat, startLng), L.latLng(destLat, destLng)],
                 routeWhileDragging: true,
                 createMarker: () => null,
-                showAlternatives: false,
-                summaryTemplate: '',
-                instructions: () => '',
-                show: false,
                 lineOptions: {
                     styles: [{ color: color, weight: 4 }]
                 }
             }).addTo(map);
-
-            return controlVariable;
+            return control;
         }
 
-        // تحديث الموقع الحالي
-        function updateMapLocation() {
-            const lat = parseFloat(document.getElementById("input-lat").value);
-            const lng = parseFloat(document.getElementById("input-lng").value);
-
-            if (!isNaN(lat) && !isNaN(lng)) {
-                userLat = lat;
-                userLng = lng;
-
-                map.setView([lat, lng]);
-
-                if (currentLocationMarker) {
-                    map.removeLayer(currentLocationMarker);
-                }
-
-                currentLocationMarker = L.marker([lat, lng]).addTo(map)
-                    .bindPopup("الموقع الحالي")
-                    .openPopup();
-            }
-        }
-
-        // حساب المسافة بين نقطتين
         function getDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371;
+            const R = 6371; 
             const dLat = toRad(lat2 - lat1);
             const dLon = toRad(lon2 - lon1);
             const a = Math.sin(dLat / 2) ** 2 +
@@ -210,9 +183,6 @@
             return deg * (Math.PI / 180);
         }
 
-        document.getElementById("input-lat").addEventListener("input", updateMapLocation);
-        document.getElementById("input-lng").addEventListener("input", updateMapLocation);
-
         const map = L.map('map').setView([32.8872, 13.1910], 6);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
@@ -220,6 +190,7 @@
         }).addTo(map);
 
         monitorRoutes();
+        updateMapLocation(32.8872, 13.1910); // الموقع الافتراضي
     </script>
     <style>
         body {
@@ -252,6 +223,9 @@
             border: 1px solid #ccc;
             border-radius: 4px;
         }
+        .info-input input[disabled] {
+            background-color: #e9ecef;
+        }
     </style>
 </head>
 <body>
@@ -261,11 +235,11 @@
     <div id="info-container">
         <div class="info-input">
             <label for="input-lat">Latitude:</label>
-            <input type="text" id="input-lat" placeholder="Latitude">
+            <input type="text" id="input-lat" disabled>
         </div>
         <div class="info-input">
             <label for="input-lng">Longitude:</label>
-            <input type="text" id="input-lng" placeholder="Longitude">
+            <input type="text" id="input-lng" disabled>
         </div>
         <div class="info-input">
             <label for="start-lat">Start Latitude:</label>
