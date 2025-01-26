@@ -39,7 +39,6 @@
         let routesData = []; // مصفوفة لتخزين البيانات الخاصة بالمسارات
         let markers = {}; // لتخزين علامات نقاط البداية والوجهة حسب ID
         let currentLocationMarker; // متغير لحفظ المؤشر الحالي
-        const MAX_DISTANCE_TO_CLICK = 10; // أقصى مسافة بالكيلومترات للسماح بالنقر على الطلبات
 
         // مراقبة التغيرات في مجموعة "الطلابات"
         function monitorRoutes() {
@@ -73,11 +72,7 @@
             const startMarker = L.marker([startLat, startLng]).addTo(map)
                 .bindPopup(`نقطة البداية: ${startLat}, ${startLng} (المسافة: ${distanceToStart.toFixed(2)} كم)`);
 
-            if (distanceToStart <= MAX_DISTANCE_TO_CLICK) {
-                startMarker.on('click', () => handleMarkerClick(routeId, routeData, startMarker));
-            } else {
-                startMarker.bindPopup("هذه العلامة بعيدة جدًا عن موقعك الحالي ولا يمكنك التفاعل معها.");
-            }
+            startMarker.on('click', () => handleMarkerClick(routeId, routeData, startMarker));
 
             markers[routeId] = { startMarker, destinationLat, destinationLng };
         }
@@ -182,8 +177,6 @@
                 userLat = lat;
                 userLng = lng;
 
-                map.setView([lat, lng]);
-
                 if (currentLocationMarker) {
                     map.removeLayer(currentLocationMarker);
                 }
@@ -191,6 +184,13 @@
                 currentLocationMarker = L.marker([lat, lng]).addTo(map)
                     .bindPopup("الموقع الحالي")
                     .openPopup();
+            }
+        }
+
+        // تحريك الخريطة إلى الموقع الحالي
+        function moveToCurrentLocation() {
+            if (!isNaN(userLat) && !isNaN(userLng)) {
+                map.setView([userLat, userLng], map.getZoom());
             }
         }
 
@@ -255,6 +255,17 @@
             border: 1px solid #ccc;
             border-radius: 4px;
         }
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .btn-move {
+            background-color: #007bff;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -270,6 +281,7 @@
             <label for="input-lng">Longitude:</label>
             <input type="text" id="input-lng" placeholder="Longitude">
         </div>
+        <button class="btn btn-move" onclick="moveToCurrentLocation()">تحريك الخريطة إلى الموقع الحالي</button>
         <div class="info-input">
             <label for="start-lat">Start Latitude:</label>
             <input type="text" id="start-lat" disabled>
