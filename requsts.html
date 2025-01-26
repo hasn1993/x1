@@ -5,8 +5,313 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>عرض المسارات على الخريطة</title>
     <!-- تحميل مكتبة Leaflet -->
+    <link rel="stylesheet" href="http<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>عرض المسارات على الخريطة</title>
+    <!-- تحميل مكتبة Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+    <!-- تحميل مكتبة Leaflet Routing Machine -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+
+    <!-- تحميل مكتبة Firebase -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+        import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+
+        // تهيئة Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyAYP_0YecYNCgoTKyvuSme9u3pmg-CH1iU",
+            authDomain: "korsa-01.firebaseapp.com",
+            projectId: "korsa-01",
+            storageBucket: "korsa-01.firebasestorage.app",
+            messagingSenderId: "240468092018",
+            appId: "1:240468092018:web:641db8b472b2c7da0aceeb"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let userLat = 32.8872; // الافتراضي - طرابلس
+        let userLng = 13.1910;
+        let routeControl1; // مسار بين البداية والوجهة
+        let routeControl2; // مسار بين الموقع الحالي والبداية
+        let activeRoute = null; // المسار الذي تم تحديده
+        let activeRouteMarkers = []; // لتخزين علامات المسار المحدد
+        let routesData = []; // مصفوفة لتخزين البيانات الخاصة بالمسارات
+        let markers = {}; // لتخزين علامات نقاط البداية والوجهة حسب ID
+        let currentLocationMarker; // متغير لحفظ المؤشر الحالي
+        const MAX_DISTANCE_TO_CLICK = 10; // أقصى مسافة بالكيلومترات للسماح بالنقر على الطلبات
+
+        // مراقبة التغيرات في مجموعة "الطلابات"
+        function monitorRoutes() {
+            const routesRef = collection(db, "الطلابات");
+            onSnapshot(routesRef, (snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    const doc = change.doc;
+                    const routeData = doc.data();
+                    const routeId = doc.id;
+
+                    if (change.type === "added") {
+                        addRouteMarker(routeId, routeData);
+                    } else if (change.type === "modified") {
+                        updateRouteMarker(routeId, routeData);
+                    } else if (change.type === "removed") {
+                        removeRouteMarker(routeId);
+                    }
+                });
+            });
+        }
+
+        // إضافة علامة جديدة إلى الخريطة
+        function addRouteMarker(routeId, routeData) {
+            const startLat = routeData.startPoint.lat;
+            const startLng = routeData.startPoint.lng;
+            const destinationLat = routeData.destinationPoint.lat;
+            const destinationLng = routeData.destinationPoint.lng;
+
+            const distanceToStart = getDistance(userLat, userLng, startLat, startLng);
+
+            const startMarker = L.marker([startLat, startLng]).addTo(map)
+                .bindPopup(`نقطة البداية: ${startLat}, ${startLng} (المسافة: ${distanceToStart.toFixed(2)} كم)`);
+
+            if (distanceToStart <= MAX_DISTANCE_TO_CLICK) {
+                startMarker.on('click', () => handleMarkerClick(routeId, routeData, startMarker));
+            } else {
+                startMarker.bindPopup("هذه العلامة بعيدة جدًا عن موقعك الحالي ولا يمكنك التفاعل معها.");
+            }
+
+            markers[routeId] = { startMarker, destinationLat, destinationLng };
+        }
+
+        // تحديث علامة موجودة
+        function updateRouteMarker(routeId, routeData) {
+            removeRouteMarker(routeId); // إزالة العلامة القديمة
+            addRouteMarker(routeId, routeData); // إضافة العلامة الجديدة
+        }
+
+        // إزالة علامة
+        function removeRouteMarker(routeId) {
+            if (markers[routeId]) {
+                map.removeLayer(markers[routeId].startMarker);
+                delete markers[routeId];
+            }
+        }
+
+        // التعامل مع النقر على علامة
+        function handleMarkerClick(routeId, routeData, startMarker) {
+            const startLat = routeData.startPoint.lat;
+            const startLng = routeData.startPoint.lng;
+            const destinationLat = routeData.destinationPoint.lat;
+            const destinationLng = routeData.destinationPoint.lng;
+
+            // حذف المسار والعلامات القديمة
+            if (routeControl1) {
+                map.removeControl(routeControl1);
+            }
+            if (routeControl2) {
+                map.removeControl(routeControl2);
+            }
+
+            // تحديث المسار الحالي
+            activeRoute = routeId;
+            activeRouteMarkers = [startMarker];
+            routeControl1 = displayRoute(startLat, startLng, destinationLat, destinationLng, routeControl1, 'green'); // مسار أخضر
+
+            // إنشاء علامة الوجهة
+            const destinationMarker = createDestinationMarker(destinationLat, destinationLng);
+            destinationMarker.addTo(map);
+            activeRouteMarkers.push(destinationMarker);
+
+            // رسم المسار الأزرق بين الموقع الحالي ونقطة البداية
+            routeControl2 = displayRoute(userLat, userLng, startLat, startLng, routeControl2, 'blue'); // مسار أزرق
+
+            // تحديث الحقول بالقيم الجديدة
+            document.getElementById('start-lat').value = startLat;
+            document.getElementById('start-lng').value = startLng;
+            document.getElementById('destination-lat').value = destinationLat;
+            document.getElementById('destination-lng').value = destinationLng;
+            document.getElementById('route-id').value = routeId;
+            document.getElementById('distance').value = routeData.distance;
+            document.getElementById('duration').value = routeData.duration;
+            document.getElementById('user-id').value = routeData.userId;
+        }
+
+        // دالة لإنشاء علامة الوجهة
+        function createDestinationMarker(destinationLat, destinationLng) {
+            const greenIcon = L.divIcon({
+                className: 'leaflet-div-icon',
+                html: '<div style="background-color: green; width: 20px; height: 20px; border-radius: 50%;"></div>',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10],
+                popupAnchor: [0, -10]
+            });
+
+            return L.marker([destinationLat, destinationLng], { icon: greenIcon });
+        }
+
+        // دالة لرسم مسار
+        function displayRoute(startLat, startLng, destinationLat, destinationLng, controlVariable, color) {
+            if (controlVariable) {
+                map.removeControl(controlVariable);
+            }
+
+            controlVariable = L.Routing.control({
+                waypoints: [
+                    L.latLng(startLat, startLng),
+                    L.latLng(destinationLat, destinationLng)
+                ],
+                routeWhileDragging: true,
+                createMarker: () => null,
+                showAlternatives: false,
+                summaryTemplate: '',
+                instructions: () => '',
+                show: false,
+                lineOptions: {
+                    styles: [{ color: color, weight: 4 }]
+                }
+            }).addTo(map);
+
+            return controlVariable;
+        }
+
+        // تحديث الموقع الحالي
+        function updateMapLocation() {
+            const lat = parseFloat(document.getElementById("input-lat").value);
+            const lng = parseFloat(document.getElementById("input-lng").value);
+
+            if (!isNaN(lat) && !isNaN(lng)) {
+                userLat = lat;
+                userLng = lng;
+
+                map.setView([lat, lng]);
+
+                if (currentLocationMarker) {
+                    map.removeLayer(currentLocationMarker);
+                }
+
+                currentLocationMarker = L.marker([lat, lng]).addTo(map)
+                    .bindPopup("الموقع الحالي")
+                    .openPopup();
+            }
+        }
+
+        // تحديث الموقع الحالي تلقائيًا كل 5 ثوانٍ
+        setInterval(updateMapLocation, 5000);
+
+        // حساب المسافة بين نقطتين
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            const a = Math.sin(dLat / 2) ** 2 +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                Math.sin(dLon / 2) ** 2;
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        function toRad(deg) {
+            return deg * (Math.PI / 180);
+        }
+
+        document.getElementById("input-lat").addEventListener("input", updateMapLocation);
+        document.getElementById("input-lng").addEventListener("input", updateMapLocation);
+
+        const map = L.map('map').setView([32.8872, 13.1910], 6);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        monitorRoutes();
+    </script>
+    <style>
+        body {
+            display: flex;
+            flex-direction: row;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        #map-container {
+            flex: 1;
+            height: 100vh;
+        }
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+        #info-container {
+            flex: 1;
+            padding: 20px;
+            background: #f4f4f4;
+            overflow-y: auto;
+        }
+        .info-input {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 10px;
+        }
+        .info-input input {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map-container">
+        <div id="map"></div>
+    </div>
+    <div id="info-container">
+        <div class="info-input">
+            <label for="input-lat">Latitude:</label>
+            <input type="text" id="input-lat" placeholder="Latitude">
+        </div>
+        <div class="info-input">
+            <label for="input-lng">Longitude:</label>
+            <input type="text" id="input-lng" placeholder="Longitude">
+        </div>
+        <div class="info-input">
+            <label for="start-lat">Start Latitude:</label>
+            <input type="text" id="start-lat" disabled>
+        </div>
+        <div class="info-input">
+            <label for="start-lng">Start Longitude:</label>
+            <input type="text" id="start-lng" disabled>
+        </div>
+        <div class="info-input">
+            <label for="destination-lat">Destination Latitude:</label>
+            <input type="text" id="destination-lat" disabled>
+        </div>
+        <div class="info-input">
+            <label for="destination-lng">Destination Longitude:</label>
+            <input type="text" id="destination-lng" disabled>
+        </div>
+        <div class="info-input">
+            <label for="route-id">Route ID:</label>
+            <input type="text" id="route-id" disabled>
+        </div>
+        <div class="info-input">
+            <label for="user-id">User ID:</label>
+            <input type="text" id="user-id" disabled>
+        </div>
+        <div class="info-input">
+            <label for="distance">Distance (km):</label>
+            <input type="text" id="distance" disabled>
+        </div>
+        <div class="info-input">
+            <label for="duration">Duration (mins):</label>
+            <input type="text" id="duration" disabled>
+        </div>
+    </div>
+</body>
+</html>
 
     <!-- تحميل مكتبة Leaflet Routing Machine -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
