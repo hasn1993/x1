@@ -4,25 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>عرض المسارات على الخريطة</title>
-    <!-- تحميل مكتبة Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-
-    <!-- تحميل مكتبة Leaflet Routing Machine -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
     <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
 
-    <!-- تحميل مكتبة Firebase -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
         import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 
-        // تهيئة Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyAYP_0YecYNCgoTKyvuSme9u3pmg-CH1iU",
             authDomain: "korsa-01.firebaseapp.com",
             projectId: "korsa-01",
-            storageBucket: "korsa-01.firebasestorage.app",
+            storageBucket: "korsa-01.appspot.com",
             messagingSenderId: "240468092018",
             appId: "1:240468092018:web:641db8b472b2c7da0aceeb"
         };
@@ -30,17 +25,22 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        let userLat = 32.8872; // الافتراضي - طرابلس
+        let userLat = 32.8872;
         let userLng = 13.1910;
-        let routeControl1; // مسار بين البداية والوجهة
-        let routeControl2; // مسار بين الموقع الحالي والبداية
-        let activeRoute = null; // المسار الذي تم تحديده
-        let activeRouteMarkers = []; // لتخزين علامات المسار المحدد
-        let routesData = []; // مصفوفة لتخزين البيانات الخاصة بالمسارات
-        let markers = {}; // لتخزين علامات نقاط البداية والوجهة حسب ID
-        let currentLocationMarker; // متغير لحفظ المؤشر الحالي
+        let routeControl1;
+        let routeControl2;
+        let activeRoute = null;
+        let activeRouteMarkers = [];
+        let routesData = [];
+        let markers = {};
+        let currentLocationMarker;
 
-        // مراقبة التغيرات في مجموعة "الطلابات"
+        window.moveToCurrentLocation = function() {
+            if (!isNaN(userLat) && !isNaN(userLng)) {
+                map.setView([userLat, userLng], 13);
+            }
+        };
+
         function monitorRoutes() {
             const routesRef = collection(db, "الطلابات");
             onSnapshot(routesRef, (snapshot) => {
@@ -60,7 +60,6 @@
             });
         }
 
-        // إضافة علامة جديدة إلى الخريطة
         function addRouteMarker(routeId, routeData) {
             const startLat = routeData.startPoint.lat;
             const startLng = routeData.startPoint.lng;
@@ -69,21 +68,26 @@
 
             const distanceToStart = getDistance(userLat, userLng, startLat, startLng);
 
-            const startMarker = L.marker([startLat, startLng]).addTo(map)
-                .bindPopup(`نقطة البداية: ${startLat}, ${startLng} (المسافة: ${distanceToStart.toFixed(2)} كم)`);
+            // إنشاء علامة البداية مع اسم "زبون"
+            const startMarker = L.marker([startLat, startLng], {
+                icon: L.divIcon({
+                    className: 'leaflet-div-icon',
+                    html: '<div style="background-color: blue; color: white; padding: 5px; border-radius: 5px;">زبون</div>',
+                    iconSize: [60, 20],
+                    iconAnchor: [30, 10]
+                })
+            }).addTo(map);
 
             startMarker.on('click', () => handleMarkerClick(routeId, routeData, startMarker));
 
             markers[routeId] = { startMarker, destinationLat, destinationLng };
         }
 
-        // تحديث علامة موجودة
         function updateRouteMarker(routeId, routeData) {
-            removeRouteMarker(routeId); // إزالة العلامة القديمة
-            addRouteMarker(routeId, routeData); // إضافة العلامة الجديدة
+            removeRouteMarker(routeId);
+            addRouteMarker(routeId, routeData);
         }
 
-        // إزالة علامة
         function removeRouteMarker(routeId) {
             if (markers[routeId]) {
                 map.removeLayer(markers[routeId].startMarker);
@@ -91,35 +95,34 @@
             }
         }
 
-        // التعامل مع النقر على علامة
         function handleMarkerClick(routeId, routeData, startMarker) {
             const startLat = routeData.startPoint.lat;
             const startLng = routeData.startPoint.lng;
             const destinationLat = routeData.destinationPoint.lat;
             const destinationLng = routeData.destinationPoint.lng;
 
-            // حذف المسار والعلامات القديمة
-            if (routeControl1) {
-                map.removeControl(routeControl1);
-            }
-            if (routeControl2) {
-                map.removeControl(routeControl2);
-            }
+            if (routeControl1) map.removeControl(routeControl1);
+            if (routeControl2) map.removeControl(routeControl2);
 
-            // تحديث المسار الحالي
             activeRoute = routeId;
             activeRouteMarkers = [startMarker];
-            routeControl1 = displayRoute(startLat, startLng, destinationLat, destinationLng, routeControl1, 'green'); // مسار أخضر
+            routeControl1 = displayRoute(startLat, startLng, destinationLat, destinationLng, routeControl1, 'green');
 
-            // إنشاء علامة الوجهة
-            const destinationMarker = createDestinationMarker(destinationLat, destinationLng);
-            destinationMarker.addTo(map);
+            // إنشاء علامة الوجهة مع اسم "الوجهة"
+            const destinationMarker = L.marker([destinationLat, destinationLng], {
+                icon: L.divIcon({
+                    className: 'leaflet-div-icon',
+                    html: '<div style="background-color: green; color: white; padding: 5px; border-radius: 5px;">الوجهة</div>',
+                    iconSize: [60, 20],
+                    iconAnchor: [30, 10]
+                })
+            }).addTo(map);
+
             activeRouteMarkers.push(destinationMarker);
 
-            // رسم المسار الأزرق بين الموقع الحالي ونقطة البداية
-            routeControl2 = displayRoute(userLat, userLng, startLat, startLng, routeControl2, 'blue'); // مسار أزرق
+            routeControl2 = displayRoute(userLat, userLng, startLat, startLng, routeControl2, 'blue');
 
-            // تحديث الحقول بالقيم الجديدة
+            // تحديث جميع الحقول
             document.getElementById('start-lat').value = startLat;
             document.getElementById('start-lng').value = startLng;
             document.getElementById('destination-lat').value = destinationLat;
@@ -128,47 +131,28 @@
             document.getElementById('distance').value = routeData.distance;
             document.getElementById('duration').value = routeData.duration;
             document.getElementById('user-id').value = routeData.userId;
+
+            const distanceToStart = getDistance(userLat, userLng, startLat, startLng);
+            document.getElementById('distance-to-start').value = distanceToStart.toFixed(2);
         }
 
-        // دالة لإنشاء علامة الوجهة
-        function createDestinationMarker(destinationLat, destinationLng) {
-            const greenIcon = L.divIcon({
-                className: 'leaflet-div-icon',
-                html: '<div style="background-color: green; width: 20px; height: 20px; border-radius: 50%;"></div>',
-                iconSize: [20, 20],
-                iconAnchor: [10, 10],
-                popupAnchor: [0, -10]
-            });
-
-            return L.marker([destinationLat, destinationLng], { icon: greenIcon });
-        }
-
-        // دالة لرسم مسار
         function displayRoute(startLat, startLng, destinationLat, destinationLng, controlVariable, color) {
-            if (controlVariable) {
-                map.removeControl(controlVariable);
-            }
+            if (controlVariable) map.removeControl(controlVariable);
 
             controlVariable = L.Routing.control({
-                waypoints: [
-                    L.latLng(startLat, startLng),
-                    L.latLng(destinationLat, destinationLng)
-                ],
+                waypoints: [L.latLng(startLat, startLng), L.latLng(destinationLat, destinationLng)],
                 routeWhileDragging: true,
                 createMarker: () => null,
                 showAlternatives: false,
                 summaryTemplate: '',
                 instructions: () => '',
                 show: false,
-                lineOptions: {
-                    styles: [{ color: color, weight: 4 }]
-                }
+                lineOptions: { styles: [{ color: color, weight: 4 }] }
             }).addTo(map);
 
             return controlVariable;
         }
 
-        // تحديث الموقع الحالي
         function updateMapLocation() {
             const lat = parseFloat(document.getElementById("input-lat").value);
             const lng = parseFloat(document.getElementById("input-lng").value);
@@ -177,34 +161,29 @@
                 userLat = lat;
                 userLng = lng;
 
-                if (currentLocationMarker) {
-                    map.removeLayer(currentLocationMarker);
-                }
+                if (currentLocationMarker) map.removeLayer(currentLocationMarker);
 
-                currentLocationMarker = L.marker([lat, lng]).addTo(map)
-                    .bindPopup("الموقع الحالي")
-                    .openPopup();
+                // إنشاء علامة الموقع الحالي مع اسم "الموقع الحالي"
+                currentLocationMarker = L.marker([lat, lng], {
+                    icon: L.divIcon({
+                        className: 'leaflet-div-icon',
+                        html: '<div style="background-color: red; color: white; padding: 5px; border-radius: 5px;">الموقع الحالي</div>',
+                        iconSize: [80, 20],
+                        iconAnchor: [40, 10]
+                    })
+                }).addTo(map);
             }
         }
 
-        // تحريك الخريطة إلى الموقع الحالي
-        function moveToCurrentLocation() {
-            if (!isNaN(userLat) && !isNaN(userLng)) {
-                map.setView([userLat, userLng], map.getZoom());
-            }
-        }
+        setInterval(() => {
+            if (!isNaN(userLat) && !isNaN(userLng)) updateMapLocation();
+        }, 5000);
 
-        // تحديث الموقع الحالي تلقائيًا كل 5 ثوانٍ
-        setInterval(updateMapLocation, 5000);
-
-        // حساب المسافة بين نقطتين
         function getDistance(lat1, lon1, lat2, lon2) {
             const R = 6371;
             const dLat = toRad(lat2 - lat1);
             const dLon = toRad(lon2 - lon1);
-            const a = Math.sin(dLat / 2) ** 2 +
-                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-                Math.sin(dLon / 2) ** 2;
+            const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
             return R * c;
         }
@@ -216,7 +195,7 @@
         document.getElementById("input-lat").addEventListener("input", updateMapLocation);
         document.getElementById("input-lng").addEventListener("input", updateMapLocation);
 
-        const map = L.map('map').setView([32.8872, 13.1910], 6);
+        const map = L.map('map').setView([32.8872, 13.1910], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '© OpenStreetMap contributors'
@@ -313,6 +292,10 @@
         <div class="info-input">
             <label for="duration">Duration (mins):</label>
             <input type="text" id="duration" disabled>
+        </div>
+        <div class="info-input">
+            <label for="distance-to-start">Distance to Start (km):</label>
+            <input type="text" id="distance-to-start" disabled>
         </div>
     </div>
 </body>
