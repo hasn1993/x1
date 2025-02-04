@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>خريطة مع مواقع الزبون والسائق</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 400px;
+            width: 100%;
+        }
+        .input-group {
+            margin-bottom: 10px;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+    <h1>خريطة مع مواقع الزبون والسائق</h1>
+    
+    <div class="input-group">
+        <label for="customer-lat">خط عرض الزبون:</label>
+        <input type="text" id="customer-lat" placeholder="ادخل خط عرض الزبون">
+    </div>
+    <div class="input-group">
+        <label for="customer-lng">خط طول الزبون:</label>
+        <input type="text" id="customer-lng" placeholder="ادخل خط طول الزبون">
+    </div>
+    <div class="input-group">
+        <label for="driver-lat">خط عرض السائق:</label>
+        <input type="text" id="driver-lat" placeholder="ادخل خط عرض السائق">
+    </div>
+    <div class="input-group">
+        <label for="driver-lng">خط طول السائق:</label>
+        <input type="text" id="driver-lng" placeholder="ادخل خط طول السائق">
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        // Initialize the map
+        var map = L.map('map').setView([24.7136, 46.6753], 10); // مركز الخريطة على الرياض
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Markers for customer and driver
+        var customerMarker = null;
+        var driverMarker = null;
+
+        // Function to update markers
+        function updateMarkers() {
+            var customerLat = document.getElementById('customer-lat').value;
+            var customerLng = document.getElementById('customer-lng').value;
+            var driverLat = document.getElementById('driver-lat').value;
+            var driverLng = document.getElementById('driver-lng').value;
+
+            // Remove existing markers
+            if (customerMarker) {
+                map.removeLayer(customerMarker);
+            }
+            if (driverMarker) {
+                map.removeLayer(driverMarker);
+            }
+
+            // Add new markers if values are provided
+            if (customerLat && customerLng) {
+                customerMarker = L.marker([customerLat, customerLng]).addTo(map)
+                    .bindPopup('موقع الزبون');
+            }
+            if (driverLat && driverLng) {
+                driverMarker = L.marker([driverLat, driverLng]).addTo(map)
+                    .bindPopup('موقع السائق');
+            }
+        }
+
+        // Listen for changes in input fields
+        document.getElementById('customer-lat').addEventListener('input', updateMarkers);
+        document.getElementById('customer-lng').addEventListener('input', updateMarkers);
+        document.getElementById('driver-lat').addEventListener('input', updateMarkers);
+        document.getElementById('driver-lng').addEventListener('input', updateMarkers);
+    </script>
+</body>
+</html>
